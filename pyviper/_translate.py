@@ -17,32 +17,37 @@ __all__ = ['translate_adata_index', '_detect_name_type']
 
 def _detect_name_type(input_array):
     nrow = len(input_array)
-    if nrow == 0: return(None) #redundant: case handled by 0-length for loop
-    found_match = False
+    if nrow == 0: 
+        return(None) #redundant: case handled by 0-length for loop
+    
     human2mouse = load_human2mouse()
-    gene_name_format = None
-    i = 0
+
+    # Create sets for each column (much faster for membership testing)
+    lookup_sets = {
+        "mouse_symbol": set(human2mouse["mouse_symbol"].values),
+        "human_symbol": set(human2mouse["human_symbol"].values),
+        "mouse_ensembl": set(human2mouse["mouse_ensembl"].values),
+        "human_ensembl": set(human2mouse["human_ensembl"].values),
+        "mouse_entrez": set(human2mouse["mouse_entrez"].values),
+        "human_entrez": set(human2mouse["human_entrez"].values)
+    }
+
     for i in range(nrow):
         gene = str(input_array[i])
-        if(gene in human2mouse["mouse_symbol"].values):
-            gene_name_format = "mouse_symbol"
-            break
-        elif(gene in human2mouse["human_symbol"].values):
-            gene_name_format = "human_symbol"
-            break
-        elif(gene in human2mouse["mouse_ensembl"].values):
-            gene_name_format = "mouse_ensembl"
-            break
-        elif(gene in human2mouse["human_ensembl"].values):
-            gene_name_format = "human_ensembl"
-            break
-        elif(gene in human2mouse["mouse_entrez"].values):
-            gene_name_format = "mouse_entrez"
-            break
-        elif(gene in human2mouse["human_entrez"].values):
-            gene_name_format = "human_entrez"
-            break
-    return(gene_name_format)
+        if gene in lookup_sets["mouse_symbol"]:
+            return "mouse_symbol"
+        elif gene in lookup_sets["human_symbol"]:
+            return "human_symbol"
+        elif gene in lookup_sets["mouse_ensembl"]:
+            return "mouse_ensembl"
+        elif gene in lookup_sets["human_ensembl"]:
+            return "human_ensembl"
+        elif gene in lookup_sets["mouse_entrez"]:
+            return "mouse_entrez"
+        elif gene in lookup_sets["human_entrez"]:
+            return "human_entrez"
+        
+    return None
 
 def _translate_genes_array(current_gene_names, desired_format):
     # if desired_format in ['human_symbol', 'human_ensembl', 'human_entrez']:

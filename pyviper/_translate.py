@@ -22,7 +22,7 @@ def _detect_name_type(input_array):
     
     human2mouse = load_human2mouse()
 
-    # Create sets for each column (much faster for membership testing)
+    # Create sets for each column (fast search)
     lookup_sets = {
         "mouse_symbol": set(human2mouse["mouse_symbol"].values),
         "human_symbol": set(human2mouse["human_symbol"].values),
@@ -50,52 +50,34 @@ def _detect_name_type(input_array):
     return None
 
 def _translate_genes_array(current_gene_names, desired_format):
-    # if desired_format in ['human_symbol', 'human_ensembl', 'human_entrez']:
-    #     translate_df = load_mouse2human()
-    # elif desired_format in ['mouse_symbol', 'mouse_ensembl', 'mouse_entrez']:
-    #     translate_df = load_human2mouse()
-    if desired_format in ['human_symbol', 'human_ensembl', 'human_entrez',
+
+    if desired_format not in ['human_symbol', 'human_ensembl', 'human_entrez',
                           'mouse_symbol', 'mouse_ensembl', 'mouse_entrez']:
-        translate_df = load_human2mouse()
-    else:
         raise ValueError("Error: desired_format is not one the following:"
                          + "\n\t\t mouse_symbol, mouse_ensembl, mouse_entrez,"
                          + "\n\t\t human_symbol, human_ensembl, human_entrez")
 
+    translate_df = load_human2mouse()
     current_format = _detect_name_type(current_gene_names)
     if current_format is None:
         raise ValueError("Error: could not detect current_format as one of the following:"
                          + "\n\t\t mouse_symbol, mouse_ensembl, mouse_entrez,"
                          + "\n\t\t human_symbol, human_ensembl, human_entrez")
 
-    translate_df = translate_df.sort_values(by=current_format, ascending=True)
-    dict_column_current_format = translate_df[current_format].values
-    dict_column_desired_format = translate_df[desired_format].values
+    # If the desired format is the same as the current, just return
+    if current_format == desired_format:
+        return current_gene_names
+    
+    # Create a dict with current_format as keys and desired_format as values
+    translation_dict = dict(zip(translate_df[current_format], translate_df[desired_format]))
 
-    # Get positions of translated values
-    positions = np.searchsorted(dict_column_current_format, current_gene_names)
+    # Apply translation with array operations
+    result = np.array([translation_dict.get(str(gene), np.nan) for gene in current_gene_names])
 
-    # Identify input values that have no translation available
-    # These two lines of code are essentially:
-        # mask = (positions < len(dict_column_current_format)) & (dict_column_current_format[positions] == current_gene_names)
-    # But dict_column_current_format[positions] causes error when positions = len(dict_column_current_format), which
-    # happens if we have elements sorted to the end, such as with "A", "B", "C" with element "D".
-    mask = (positions < len(dict_column_current_format))
-    selected_elements = mask[mask]
-    selected_elements[dict_column_current_format[positions[mask]] != current_gene_names[mask]] = False
-    if desired_format == 'mouse_entrez':
-        selected_elements[dict_column_desired_format[positions[mask]] == -1] = False
-    if current_format == 'mouse_entrez':
-        selected_elements[dict_column_current_format[positions[mask]] == -1] = False
-    mask[mask] = selected_elements
+    # Standardize missing values
+    result = _uniform_missing_values(result)
 
-    # Get translated values
-    translation = np.array([None] * len(current_gene_names))
-    translation[mask] = dict_column_desired_format[positions[mask]]
-
-    translation = _uniform_missing_values(translation)
-
-    return translation
+    return result
 
 def _uniform_missing_values(arr):
     arr[pd.isna(arr)] = np.nan

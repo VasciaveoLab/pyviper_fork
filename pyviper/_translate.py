@@ -59,25 +59,42 @@ def _translate_genes_array(current_gene_names, desired_format):
 
     translate_df = load_human2mouse()
     current_format = _detect_name_type(current_gene_names)
+
     if current_format is None:
         raise ValueError("Error: could not detect current_format as one of the following:"
                          + "\n\t\t mouse_symbol, mouse_ensembl, mouse_entrez,"
                          + "\n\t\t human_symbol, human_ensembl, human_entrez")
 
-    # If the desired format is the same as the current, just return
-    if current_format == desired_format:
-        return current_gene_names
-    
-    # Create a dict with current_format as keys and desired_format as values
-    translation_dict = dict(zip(translate_df[current_format], translate_df[desired_format]))
+    # Sort the translate_df like the original implementation
+    translate_df = translate_df.sort_values(by=current_format, ascending=True)
 
-    # Apply translation with array operations
-    result = np.array([translation_dict.get(str(gene), np.nan) for gene in current_gene_names])
+    # Create a dictionary with the mappings for fast lookup
+    translation_dict = {}
+    for _, row in translate_df.iterrows():
+        key = row[current_format]
+        value = row[desired_format]
+        
+        # Skip -1 values in the same way as the original
+        if (current_format == 'mouse_entrez' and key == -1) or \
+           (desired_format == 'mouse_entrez' and value == -1):
+            continue
+            
+        # Convert to string for dictionary keys and add to the dict if not already there
+        if key not in translation_dict:
+            translation_dict[key] = value
 
-    # Standardize missing values
-    result = _uniform_missing_values(result)
+    # Get translated values
+    translation = np.array([None] * len(current_gene_names))
 
-    return result
+    for i, gene in enumerate(current_gene_names):
+        if gene in translation_dict:
+            translation[i] = translation_dict[gene]
+        else:
+            translation[i] = None
+
+    # Handle missing values
+    translation = _uniform_missing_values(translation)
+    return translation
 
 def _uniform_missing_values(arr):
     arr[pd.isna(arr)] = np.nan

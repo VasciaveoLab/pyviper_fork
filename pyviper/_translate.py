@@ -74,7 +74,7 @@ def _translate_genes_array(current_gene_names, desired_format):
         key = row[current_format]
         value = row[desired_format]
         
-        # Skip -1 values in the same way as the original
+        # Skip -1 values
         if (current_format == 'mouse_entrez' and key == -1) or \
            (desired_format == 'mouse_entrez' and value == -1):
             continue
@@ -94,6 +94,7 @@ def _translate_genes_array(current_gene_names, desired_format):
 
     # Handle missing values
     translation = _uniform_missing_values(translation)
+    
     return translation
 
 def _uniform_missing_values(arr):
